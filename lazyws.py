@@ -22,13 +22,18 @@ def lamp_install():
     # install httpd and enable in firewalld
     real_command = r"yum install -y httpd && systemctl enable httpd && systemctl start httpd && firewall-cmd --zone=public --permanent --add-service=http && firewall-cmd --permanent --add-port=80/tcp && firewall-cmd --permanent --add-port=443/tcp"
     subprocess.call(real_command, shell=True)
-    
+
     # enables userdir
     the_file = r'/etc/httpd/conf.d/userdir.conf'
     with open(the_file) as f:
-        newText=f.read().replace('UserDir disabled', 'UserDir enabled')
+        userdir_enable = f.read().replace('UserDir disabled', 'UserDir enabled')
+        userdir_dir = f.read().replace('#UserDir public_html', 'UserDir public_html')
     with open(the_file, "w") as f:
-        f.write(newText)
+        f.write(userdir_enable)
+        f.write(userdir_dir)
+    subprocess.call('systemctl restart httpd', shell=True)
+    # enables userdir in selinux
+    subprocess.call('setsebool -P httpd_enable_homedirs true', shell=True)
 
     # install mariadb
     real_command = r"yum install -y mariadb-server mariadb && systemctl enable mariadb && systemctl start mariadb"

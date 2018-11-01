@@ -43,6 +43,9 @@ def lamp_install():
     real_command = r'yum install -y php php-mysql && systemctl restart httpd'
     subprocess.call(real_command, shell=True)
 
+
+# !!!!! add ftp server install, and other server stuff!!!!
+
 # lets encrypt tools
 def lets_setup():
     menu_choice = int(input("""
@@ -87,10 +90,41 @@ def vhost():
     if the_domain.startswith("www.") : the_domain = the_domain.replace("www.", "")
 
     #adds the code to the conf file
+    #!!!!!!! need to add log file locations!!!!!!
     http_conf_file = open(http_conf, 'a')
     http_conf.write(f"<VirtualHost *:80 *:443>\n\tServerAdmin admin@{the_domain}\n\tServerAlias www.{the_domain}\n\tDocumentRoot /home/{the_domain}\n<VirtualHost>")
 
     # wil need to fix this a lot more when doing user domains
+
+# this should add a domain
+def add_domain():
+    # add and cleans the domain name string !!!!should make this bit it's own function and reuse it!!!!!
+    the_domain = input("What domain do you want to add? ")
+    if the_domain.startswith("https://www.") : the_domain = the_domain.replace("https://www.")
+    if the_domain.startswith("http://www.") : the_domain = the_domain.replace("http://www.", "")
+    if the_domain.startswith("https://") : the_domain = the_domain.replace("https://", "")
+    if the_domain.startswith("http://") : the_domain = the_domain.replace("http://", "")
+    if the_domain.startswith("www.") : the_domain = the_domain.replace("www.", "")
+    
+    # adds the domain as a user in linux, !!!!!need to modify this for subdomains!!!!!
+    # !!! need to also clean the username, maybe only use the first 8 char but have to check for potential duplicate!!!!!
+    domain_user = the_domain.replace(".", "")
+    real_command = f"useradd {domain_user}"
+    subprocess.call(real_command, shell=True)
+
+    # creates public_html, mail and folders !!!!!need to add proper perms and selinux stuff!!!!!
+    real_command = f"mkdir \/home\/{domain_user}\/public_html && mkdir \/home\/{domain_user}\/mail && mkdir \/home\/{domain_user}\/logs"
+    subprocess.call(real_command, shell=True)
+
+    #!!!!!need to add letsencrypt and regular cron for it!!!!!
+    #!!!!!add ssh access toggle, and dir size limits!!!
+    #!!!!!need this function to also add the vhost!!!!!
+
+
+
+
+# !!!! add an automatic wordpress and other things installer!!!!!
+# !!!! create a basic backup feature for the above !!!!!
 
 # exim and dovecot setup
 def exim_dovecot_setup():

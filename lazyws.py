@@ -19,10 +19,14 @@ def lz_menu():
 
 #LAMP install
 def lamp_install():
-    # install httpd and enable in firewalld
-    real_command = r"yum install -y httpd && systemctl enable httpd && systemctl start httpd && firewall-cmd --zone=public --permanent --add-service=http && firewall-cmd --permanent --add-port=80/tcp && firewall-cmd --permanent --add-port=443/tcp"
+    # install apache
+    real_command = r"yum install -y httpd && systemctl enable httpd && systemctl start httpd"
     subprocess.call(real_command, shell=True)
 
+    # enable apache in the firewall
+    real_command = r"firewall-cmd --zone=public --permanent --add-service=http && firewall-cmd --permanent --add-port=80/tcp && firewall-cmd --permanent --add-port=443/tcp && firewall-cmd --reload"
+    subprocess.call(real_command, shell=True)
+    
     # enables userdir
     the_file = r'/etc/httpd/conf.d/userdir.conf'
     with open(the_file) as f:
@@ -32,6 +36,7 @@ def lamp_install():
         f.write(userdir_enable)
         f.write(userdir_dir)
     subprocess.call('systemctl restart httpd', shell=True)
+
     # enables userdir in selinux
     subprocess.call('setsebool -P httpd_enable_homedirs true', shell=True)
 
@@ -45,6 +50,68 @@ def lamp_install():
 
 
 # !!!!! add ftp server install, and other server stuff!!!!
+
+def vsftp_setup():
+    # install vsftp
+    real_command = r"yum install -y vsftpd && systemctl enable vsftpd && systemctl start vsftpd"
+    subprocess.call(real_command, shell=True)
+
+    # add vsftp to the firewall
+    real_command = r"firewall-cmd --zone=public --permanent --add-port=21/tcp && firewall-cmd --zone=public --permanent --add-service=ftp && firewall-cmd --reload"
+    subprocess.call(real_command, shell=True)
+
+    # changes the vsftp config
+    the_file = r'/etc/vsftpd/vsftpd.conf'
+    with open(the_file) as f:
+        anon_enable = f.read().replace('anonymous_enable=YES', 'anonymous_enable=NO')
+        local_umask = f.read().replace('local_umask=', 'local_umask=022')
+        log_std_format = f.read().replace('xferlog_std_format=NO', 'xferlog_std_format=YES')
+        chroot_local = f.read().replace('#chroot_local_user=YES', 'chroot_local_user=YES')
+        chroot_write = f.read().replace('#chroot_local_user=YES', 'chroot_local_user=YES')
+    with open(the_file, "w") as f:
+        f.write(anon_enable)
+        f.write(local_umask)
+        f.write(log_std_format)
+    
+    # adds to the vsftp config
+    with open(the_file) as f:
+        real_command = r"userlist_file=/etc/vsftpd.userlist"
+        f.write(real_command)
+        real_command = r"allow_writeable_chroot=YES"
+        f.write(real_command)
+
+    # creates the userlist file for allowing cpanel users to log in
+    real_command = r'/etc/vsftpd.userlist'
+    with open(real_command, "w") as file:
+        file.write("### Add Linux users here to allow FTP access with their credentials")
+
+    # allow ftp through selinux
+    real_command = r"semanage boolean -m ftpd_full_access --on"
+    subprocess.call(real_command, shell=True)
+
+    # restarts vsftp for the config changes to take place
+    real_command = r"systemctl restart vsftpd"
+    subprocess.call(real_command, shell=True)
+
+def fail2ban_setup():
+    # install fail2ban
+    subprocess.call('yum install -y epel-release', shell=True)
+    subprocess.call('yum install -y fail2ban-firewalld', shell=True)
+
+    # copies the conf, .conf is the main, changes in .local have higher priority
+    real_command = r"cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local"
+    subprocess.call(real_command, shell=True)
+
+    # sets the firewall to systemd
+    the_file = r'/etc/fail2ban/jail.local'
+    with open(the_file) as f:
+        fw_backend = f.read().replace('backend = auto', 'backend = systemd')
+    with open(the_file, "w") as f:
+        f.write(fw_backend)
+    
+    # !!!!! update this to block smtp imap ftp etcc !!!!!
+    # !!!!! modsec install config maybe !!!!!
+
 
 # lets encrypt tools
 def lets_setup():
@@ -115,6 +182,11 @@ def add_domain():
     # creates public_html, mail and folders !!!!!need to add proper perms and selinux stuff!!!!!
     real_command = f"mkdir \/home\/{domain_user}\/public_html && mkdir \/home\/{domain_user}\/mail && mkdir \/home\/{domain_user}\/logs"
     subprocess.call(real_command, shell=True)
+
+    # allows linux user ftp logins
+    the_file = r'/etc/vsftpd/vsftpd.conf'
+    with open(the_file) as f:
+        f.write(domain_user)
 
     #!!!!!need to add letsencrypt and regular cron for it!!!!!
     #!!!!!add ssh access toggle, and dir size limits!!!
